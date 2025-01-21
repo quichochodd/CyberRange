@@ -9,10 +9,10 @@
 .NOTES
     Author: Dave Quichocho
     Date: 21Jan25
-    Version: 1.2
+    Version: 1.3
 #>
 
-# Function to apply registry settings
+# Function to create or update registry settings
 function Apply-RegistrySetting {
     param (
         [string]$KeyPath,
@@ -22,7 +22,13 @@ function Apply-RegistrySetting {
     if (-not (Test-Path -Path $KeyPath)) {
         New-Item -Path $KeyPath -Force | Out-Null
     }
-    Set-ItemProperty -Path $KeyPath -Name $ValueName -Value $ValueData
+    if (-not (Get-ItemProperty -Path $KeyPath -Name $ValueName -ErrorAction SilentlyContinue)) {
+        # Create the registry value if it doesn't exist
+        New-ItemProperty -Path $KeyPath -Name $ValueName -Value $ValueData -PropertyType DWord | Out-Null
+    } else {
+        # Update the registry value if it exists
+        Set-ItemProperty -Path $KeyPath -Name $ValueName -Value $ValueData
+    }
     Write-Output "Applied setting: $KeyPath -> $ValueName = $ValueData"
 }
 
