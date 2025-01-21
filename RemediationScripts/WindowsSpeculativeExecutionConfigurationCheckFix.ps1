@@ -1,38 +1,48 @@
 <#
 .SYNOPSIS
-    Applies vendor-recommended mitigations for speculative execution vulnerabilities on Windows.
+    Applies mitigations for speculative execution vulnerabilities on Windows.
 
 .DESCRIPTION
-    This script configures the registry and system settings to mitigate vulnerabilities such as:
-    CVE-2017-5715, CVE-2017-5753, CVE-2017-5754, and others listed in the description.
+    This script ensures the registry and system settings are configured to mitigate vulnerabilities 
+    related to speculative execution, based on vendor recommendations.
 
 .NOTES
     Author: Dave Quichocho
     Date: 21Jan25
-    Version: 1.3
+    Version: 1.4
 #>
 
-# Function to create or update registry settings
+# Function to ensure registry keys and values are set
 function Apply-RegistrySetting {
     param (
         [string]$KeyPath,
         [string]$ValueName,
         [object]$ValueData
     )
-    if (-not (Test-Path -Path $KeyPath)) {
-        New-Item -Path $KeyPath -Force | Out-Null
+
+    # Check if the registry key exists; create it if missing
+    if (-not (Test-Path -Path "Registry::$KeyPath")) {
+        Write-Output "Creating missing key: $KeyPath"
+        New-Item -Path "Registry::$KeyPath" -Force | Out-Null
     }
-    if (-not (Get-ItemProperty -Path $KeyPath -Name $ValueName -ErrorAction SilentlyContinue)) {
+
+    # Check if the registry value exists
+    $ExistingValue = Get-ItemProperty -Path "Registry::$KeyPath" -Name $ValueName -ErrorAction SilentlyContinue
+
+    if ($ExistingValue -eq $null) {
         # Create the registry value if it doesn't exist
-        New-ItemProperty -Path $KeyPath -Name $ValueName -Value $ValueData -PropertyType DWord | Out-Null
+        Write-Output "Creating value: $KeyPath -> $ValueName = $ValueData"
+        Set-ItemProperty -Path "Registry::$KeyPath" -Name $ValueName -Value $ValueData
     } else {
         # Update the registry value if it exists
-        Set-ItemProperty -Path $KeyPath -Name $ValueName -Value $ValueData
+        Write-Output "Updating value: $KeyPath -> $ValueName = $ValueData"
+        Set-ItemProperty -Path "Registry::$KeyPath" -Name $ValueName -Value $ValueData
     }
+
     Write-Output "Applied setting: $KeyPath -> $ValueName = $ValueData"
 }
 
-# Apply mitigations (per Microsoft's guidelines)
+# Apply mitigations
 Write-Output "Applying mitigations for speculative execution vulnerabilities..."
 
 # Branch Target Injection (BTI) mitigation
@@ -62,5 +72,4 @@ Apply-RegistrySetting -KeyPath "HKLM\SYSTEM\CurrentControlSet\Control\Microcode 
 Apply-RegistrySetting -KeyPath "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
                       -ValueName "FeatureSettingsOverrideMask" -ValueData 0x1
 
-# Notify user of completion
 Write-Output "All mitigations have been applied. Please restart your system for changes to take effect."
